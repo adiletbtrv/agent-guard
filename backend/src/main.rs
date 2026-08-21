@@ -1,4 +1,6 @@
 mod ast;
+mod mcp;
+mod policy;
 mod sandbox;
 mod scanner;
 mod server;
@@ -49,7 +51,7 @@ async fn main() -> Result<()> {
             print!("{}", result.stdout);
             eprint!("{}", result.stderr);
             if !result.success {
-                anyhow::bail!("command exited with status {}", result.exit_code)
+                anyhow::bail!("command exited with status {:?}", result.exit_code)
             }
             Ok(())
         }

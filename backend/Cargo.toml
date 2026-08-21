@@ -1,6 +1,6 @@
 [package]
 name = "agentguard"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Local AI coding agent firewall and shadow workspace sandbox"
 license = "MIT"
@@ -20,6 +20,7 @@ serde_json = "1.0"
 tempfile = "3.14"
 thiserror = "2.0"
 tokio = { version = "1.42", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
 tree-sitter = "0.24"
 tree-sitter-javascript = "0.23"
 tree-sitter-typescript = "0.23"

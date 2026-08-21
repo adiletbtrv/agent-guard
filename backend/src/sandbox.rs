@@ -7,6 +7,7 @@ use std::{
 use tempfile::TempDir;
 use thiserror::Error;
 use tokio::process::Command;
+use tokio::time::{timeout, Duration};
 
 #[derive(Debug, Error)]
 pub enum SandboxError {
@@ -23,7 +24,8 @@ pub enum SandboxError {
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ExecutionResult {
     pub success: bool,
-    pub exit_code: i32,
+    pub exit_code: Option<i32>,
+    pub error: Option<String>,
     pub stdout: String,
     pub stderr: String,
     pub shadow_path: PathBuf,
@@ -47,8 +49,22 @@ pub async fn execute_in_shadow(cmd: &str, cwd: &Path) -> Result<ExecutionResult,
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    let output = command.output().await.map_err(SandboxError::Execution)?;
-    let exit_code = output.status.code().unwrap_or(-1);
+    command.kill_on_drop(true);
+    let output = match timeout(Duration::from_secs(60), command.output()).await {
+        Ok(output) => output.map_err(SandboxError::Execution)?,
+        Err(_) => {
+            return Ok(ExecutionResult {
+                success: false,
+                exit_code: None,
+                error: Some("Execution timed out".to_string()),
+                stdout: String::new(),
+                stderr: String::new(),
+                shadow_path: shadow,
+                synced: false,
+            });
+        }
+    };
+    let exit_code = output.status.code();
     let success = output.status.success();
     let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
     let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
@@ -62,6 +78,7 @@ pub async fn execute_in_shadow(cmd: &str, cwd: &Path) -> Result<ExecutionResult,
     Ok(ExecutionResult {
         success,
         exit_code,
+        error: None,
         stdout,
         stderr,
         shadow_path,

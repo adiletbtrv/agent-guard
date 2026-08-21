@@ -1,6 +1,6 @@
 # AgentGuard
 
-AgentGuard is a local firewall and reversible execution layer for autonomous coding agents. The Rust daemon validates TypeScript and JavaScript syntax with tree-sitter, scans proposed content for credentials, executes commands in an isolated shadow copy, and broadcasts decisions to the React control plane over WebSockets.
+AgentGuard v0.2 is a local firewall and reversible execution layer for autonomous coding agents. The Rust daemon validates TypeScript and JavaScript syntax with tree-sitter, scans proposed content for credentials, executes commands in an isolated shadow copy with a 60-second timeout, exposes MCP tools over SSE, and broadcasts decisions to the React control plane over WebSockets.
 
 ## Requirements
 
@@ -24,6 +24,20 @@ npm --prefix frontend run dev
 ```
 
 Open `http://127.0.0.1:5173`. Vite proxies `/api` and `/ws` to the daemon on `127.0.0.1:8080`.
+
+## Runtime policy
+
+Read the active policy with `GET /api/policy` and update it with `PATCH /api/policy`:
+
+```json
+{
+  "autoApproveAstSafe": true,
+  "requireHumanForDeletions": true,
+  "strictSecretScanning": true
+}
+```
+
+The control plane syncs each toggle immediately. The daemon owns the authoritative runtime state.
 
 Wrap a command in a shadow workspace:
 
@@ -74,6 +88,25 @@ Connect a WebSocket client to `ws://127.0.0.1:8080/ws`. Events use the following
   "path": "src/example.ts"
 }
 ```
+
+## MCP
+
+AgentGuard exposes a native MCP SSE transport:
+
+```text
+GET  http://127.0.0.1:8080/mcp/sse
+POST http://127.0.0.1:8080/mcp/messages?sessionId=<session-id>
+```
+
+The SSE stream first sends an `endpoint` event containing the message URL. JSON-RPC responses are then delivered as `message` events. Supported MCP methods are `initialize`, `tools/list`, and `tools/call`.
+
+Available tools:
+
+- `agentguard_validate_ast` with `path` and `code`
+- `agentguard_scan_secrets` with `content`
+- `agentguard_sandbox_run` with `command`
+
+The secret scanner honors `strictSecretScanning`: when enabled, detected secrets make the MCP tool result an error; when disabled, the result is a warning and the call can continue.
 
 ## Verification
 
